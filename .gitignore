@@ -1,0 +1,28 @@
+# Saida do build
+dist/
+
+# Dependencias
+node_modules/
+__pycache__/
+*.pyc
+
+# hls.js baixado so para testes no PC
+widget/js/hls.light.min.js
+
+# NUNCA versionar: capturas de rede (contem usuario/senha/tokens), APKs, firmware, credenciais
+*.har
+*.apk
+*.msd
+*.img
+*.bin
+extracted_firmware/
+apk extraido/
+.env
+*.pem
+*.key
+*.p12
+*.ppk
+id_*
+secrets*
+credentials*
+photos/

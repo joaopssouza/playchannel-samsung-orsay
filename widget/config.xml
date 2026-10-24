@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget>
+    <widgetname>Play Channel</widgetname>
+    <runTitle>Play Channel</runTitle>
+    <description>Cliente nao oficial de TV ao vivo para Smart TVs Samsung Orsay (2012-2014)</description>
+    <ver>2.0.0</ver>
+    <mgrver></mgrver>
+    <type>user</type>
+    <fullwidget>y</fullwidget>
+    <srcctl>y</srcctl>
+    <movie>y</movie>
+    <ticker>n</ticker>
+    <childlock>n</childlock>
+    <videomute>n</videomute>
+    <dcont>y</dcont>
+    <mouse>y</mouse>
+    <width>1280</width>
+    <height>720</height>
+    <!-- Icones do Smart Hub: fundo solido e versoes HD (2x) -->
+    <ThumbIcon>icon/icon_106x87.png</ThumbIcon>
+    <BigThumbIcon>icon/icon_115x95.png</BigThumbIcon>
+    <ListIcon>icon/icon_85x70.png</ListIcon>
+    <BigListIcon>icon/icon_95x78.png</BigListIcon>
+    <ThumbIconHD>icon/icon_106x87_hd.png</ThumbIconHD>
+    <BigThumbIconHD>icon/icon_115x95_hd.png</BigThumbIconHD>
+    <ListIconHD>icon/icon_85x70_hd.png</ListIconHD>
+    <BigListIconHD>icon/icon_95x78_hd.png</BigListIconHD>
+    <author>
+        <name>Comunidade (projeto de codigo aberto)</name>
+        <email></email>
+        <link></link>
+    </author>
+</widget>

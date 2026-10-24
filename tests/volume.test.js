@@ -1,0 +1,37 @@
+const fs=require("fs"),path=require("path"),{JSDOM}=require("jsdom");
+const APP=process.argv[2]||path.join(__dirname,"..","widget");
+const html=fs.readFileSync(path.join(APP,"index.html"),"utf8").replace(/<script[^>]*src="[^"]*"[^>]*><\/script>/g,"");
+let fails=0;const check=(c,m)=>{console.log((c?"  OK   ":"  FAIL ")+m);if(!c)fails++;};
+const K={KEY_UP:29460,KEY_DOWN:29461,KEY_LEFT:4,KEY_RIGHT:5,KEY_ENTER:29443,KEY_RETURN:88,KEY_EXIT:45,KEY_VOL_UP:7,KEY_VOL_DOWN:11,KEY_MUTE:27,KEY_0:17,KEY_1:101};
+(async()=>{
+  const dom=new JSDOM(html,{runScripts:"outside-only",url:"http://localhost/"});const w=dom.window;
+  const unreg=[],direct=[],audio={vol:20,mute:false,log:[]};
+  w.Common={API:{TVKeyValue:function(){Object.assign(this,K)},Widget:function(){this.sendReadyEvent=()=>{};this.blockNavigation=()=>{}},
+    Plugin:function(){const t=w.document.getElementById("pluginObjectTVMW");this.unregistKey=(c)=>{if(!t)throw new Error("sem pluginObjectTVMW");unreg.push(c)}}}};
+  w.document.getElementById("pluginObjectTVMW").UnregisterKey=(c)=>direct.push(c);
+  const a=w.document.getElementById("pluginObjectAudio");
+  a.GetVolume=()=>audio.vol;a.GetUserMute=()=>audio.mute;a.SetUserMute=(m)=>{audio.mute=m};
+  a.SetVolumeWithKey=(d)=>{audio.vol+=d===0?1:-1};
+  let banner=null;w.document.getElementById("pluginObjectNNavi").SetBannerState=(s)=>{banner=s};
+  w.XMLHttpRequest=function(){this.open=()=>{};this.setRequestHeader=()=>{};this.send=()=>{}};
+  w.eval('var APP_CONFIG = {bridgeUrl:"http://192.168.0.10", providerHost:"tv.playchannel.com.br", defaultUser:"demo"};');
+  for(const f of ["js/remoteKeys.js","js/player.js","js/m3uParser.js","js/app.js"])w.eval(fs.readFileSync(path.join(APP,f),"utf8"));
+  await new Promise(r=>setTimeout(r,30));if(!w.App.vkKeys.length)w.onload();
+  const press=(c)=>w.document.dispatchEvent(new w.KeyboardEvent("keydown",{keyCode:c,bubbles:true,cancelable:true}));
+  const box=()=>w.document.getElementById("volumeBox");
+  check(JSON.stringify(unreg)==="[7,11,27]","Common.API.Plugin.unregistKey liberou VOL+, VOL-, MUDO: "+JSON.stringify(unreg));
+  check(JSON.stringify(direct)==="[7,11,27]","TVMW.UnregisterKey direto tambem: "+JSON.stringify(direct));
+  check(banner===1,"banner de volume da TV ativado (SetBannerState(1))");
+  press(K.KEY_VOL_UP);
+  check(audio.vol===21&&box().style.display==="block"&&/Vol 21/.test(w.document.getElementById("volumeLabel").textContent),"reserva: VOL+ chegou ao app -> volume 21 e barra na tela");
+  press(K.KEY_VOL_DOWN);press(K.KEY_VOL_DOWN);
+  check(audio.vol===19,"VOL- x2 -> 19");
+  press(K.KEY_MUTE);
+  check(audio.mute===true&&/MUDO/.test(w.document.getElementById("volumeLabel").textContent)&&/muted/.test(box().className),"MUDO liga e mostra MUDO");
+  press(K.KEY_VOL_UP);
+  check(audio.mute===false&&audio.vol===20,"VOL+ com mudo ligado tira do mudo");
+  press(K.KEY_MUTE);press(K.KEY_MUTE);
+  check(audio.mute===false,"MUDO alterna");
+  check(w.App.focusArea==="LOGIN"&&w.App.activeInputId==="loginPass"&&w.document.getElementById("loginPass").value==="","teclas de volume nao digitam nada no login");
+  console.log(fails?fails+" FALHA(S)":"TODOS OS TESTES PASSARAM");process.exit(fails?1:0);
+})();

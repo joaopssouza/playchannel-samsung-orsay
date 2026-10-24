@@ -1,0 +1,30 @@
+# Servidor de apoio da TV: serve o widget e faz a ponte HTTP -> HTTPS.
+#   cd server && docker compose up -d --build
+# Opcional: copie .env.example para .env para trocar o dominio do servico.
+services:
+  bridge:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      # A sincronizacao de widgets da TV usa a porta 80 (nao troque, exceto para testes)
+      - "${BRIDGE_PORT:-80}:80"
+    environment:
+      PROVIDER_HOST: ${PROVIDER_HOST:-tv.playchannel.com.br}
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      # widgetlist.xml, PlayChannel.zip e icon.png gerados por: python tools/build.py --server http://IP
+      - ../dist:/usr/share/nginx/html:ro
+    depends_on:
+      - thumbs
+
+  thumbs:
+    build: ./thumbs
+    restart: unless-stopped
+    environment:
+      PROVIDER_ORIGIN: https://${PROVIDER_HOST:-tv.playchannel.com.br}
+    volumes:
+      - thumbs-cache:/cache
+    mem_limit: 256m
+
+volumes:
+  thumbs-cache: {}

@@ -1,0 +1,11 @@
+{
+  "name": "orsay-widget-tests",
+  "private": true,
+  "description": "Testes do widget em jsdom, simulando a TV Samsung Orsay (Common API, plugin do player e XHR)",
+  "scripts": {
+    "test": "node guide.test.js && node volume.test.js && node resilience.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "24.1.3"
+  }
+}

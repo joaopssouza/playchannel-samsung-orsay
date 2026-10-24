@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Play Channel TV</title>
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+
+    <!-- Samsung Smart TV (Orsay) Common APIs - ignorados fora da TV -->
+    <script type="text/javascript" src="$MANAGER_WIDGET/Common/API/Widget.js"></script>
+    <script type="text/javascript" src="$MANAGER_WIDGET/Common/API/Plugin.js"></script>
+    <script type="text/javascript" src="$MANAGER_WIDGET/Common/API/TVKeyValue.js"></script>
+    <!-- Teclado nativo da TV (IME) -->
+    <script type="text/javascript" src="$MANAGER_WIDGET/Common/IME_XT9/ime.js"></script>
+    <script type="text/javascript" src="$MANAGER_WIDGET/Common/IME_XT9/inputCommon/ime_input.js"></script>
+</head>
+<body>
+    <!-- Plugins de hardware da TV -->
+    <object id="pluginPlayer" classid="clsid:SAMSUNG-INFOLINK-PLAYER" style="position:absolute;left:0;top:0;width:1280px;height:720px;"></object>
+    <!-- Os ids "pluginObject*" sao os que a biblioteca Common.API da Samsung procura -->
+    <object id="pluginObjectNNavi" classid="clsid:SAMSUNG-INFOLINK-NNAVI" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+    <object id="pluginObjectTVMW" classid="clsid:SAMSUNG-INFOLINK-TVMW" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+    <object id="pluginObjectAudio" classid="clsid:SAMSUNG-INFOLINK-AUDIO" style="position:absolute;left:0;top:0;width:0;height:0;"></object>
+
+    <!-- Ancora que recebe as teclas do controle remoto -->
+    <a href="javascript:void(0);" id="keyAnchor"></a>
+
+    <!-- ===================== TELA DE LOGIN ===================== -->
+    <div id="loginScreen">
+        <div id="loginLeft">
+            <img id="loginLogo" src="img/logo_sidebar.png" alt="">
+            <div id="loginSubtitle">Entre com seus dados de acesso</div>
+
+            <div class="login-label first">Usu&aacute;rio</div>
+            <input type="text" class="login-input" id="loginUser" value="" maxlength="64">
+
+            <div class="login-label">Senha</div>
+            <input type="password" class="login-input" id="loginPass" value="" maxlength="64">
+
+            <div class="login-label">Servidor</div>
+            <input type="text" class="login-input" id="loginServer" value="" maxlength="200">
+
+            <div id="btnLogin" class="login-btn btn-primary"><span id="loginBtnText">ENTRAR</span></div>
+            <div id="btnDemo" class="login-btn btn-secondary">Assistir Demonstra&ccedil;&atilde;o</div>
+
+            <div id="loginAlert"></div>
+        </div>
+
+        <div id="loginRight">
+            <div id="vkHeader">Digitando em: <span id="vkTargetLabel">Senha</span></div>
+            <div id="vkPreview"></div>
+            <div id="vkKeys"></div>
+            <div id="vkHint">
+                <b>Setas</b> navegam &middot; <b>ENTER</b> digita a tecla &middot;
+                <b>N&uacute;meros</b> do controle digitam direto &middot;
+                <b>ENTER no campo</b> abre o teclado da TV &middot;
+                <b>A (vermelho)</b> apaga
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== GUIA / PROGRAMACAO ===================== -->
+    <div id="guideScreen" style="display:none;">
+        <div id="sidebar">
+            <img id="sideLogo" src="img/logo_sidebar.png" alt="">
+            <div id="menuList"></div>
+            <div id="sideUser"></div>
+            <div id="sideClock">--:--</div>
+        </div>
+
+        <!-- Fundo cinza montado em blocos para deixar o "buraco" do video transparente -->
+        <div class="bgfill" id="bgMain"></div>
+        <div class="bgfill" id="bgPrevTop"></div>
+        <div class="bgfill" id="bgPrevLeft"></div>
+        <div class="bgfill" id="bgPrevRight"></div>
+        <div class="bgfill" id="bgPrevBottom"></div>
+
+        <div id="chanCol">
+            <div id="chanColTitle"></div>
+            <div id="chanRows"></div>
+        </div>
+
+        <div id="epgCol">
+            <div id="epgHeader"><img id="epgLogo" src="img/blank.gif" alt=""><span id="epgChanName"></span></div>
+            <div id="epgRows"></div>
+            <div id="epgEmpty"></div>
+        </div>
+
+        <div id="videoFrame"><video id="html5Video"></video></div>
+        <div id="prevInfo">
+            <div id="prevTitle"></div>
+            <div id="prevCat"></div>
+            <div id="prevDesc"></div>
+        </div>
+
+        <!-- Usuario -->
+        <div id="userPanel" class="view-panel" style="display:none;">
+            <div id="userHello"></div>
+            <div class="user-section">Conta</div>
+            <div class="user-btn" id="ubLogout">Sair da conta</div>
+            <div class="user-section">Lista de canais</div>
+            <div class="user-btn" id="ubRefresh">Atualizar canais</div>
+            <div class="user-section">Controle parental</div>
+            <div class="user-btn" id="ubPin">Alterar senha</div>
+            <div id="userInfo"></div>
+        </div>
+
+        <!-- Pesquisar -->
+        <div id="searchPanel" class="view-panel" style="display:none;">
+            <div class="panel-heading">Pesquisar canal</div>
+            <div id="searchBox"></div>
+            <div id="searchKeys"></div>
+            <div id="searchHint">Digite o nome ou o n&uacute;mero &middot; <b>&#9654;</b> vai para os resultados &middot; n&uacute;meros do controle digitam direto</div>
+            <div id="searchCount"></div>
+            <div id="searchRows"></div>
+        </div>
+
+        <!-- Catalogo por grupos -->
+        <div id="catalogPanel" class="view-panel" style="display:none;">
+            <div id="catalogInfo"></div>
+            <div id="catalogRows"></div>
+        </div>
+    </div>
+
+    <!-- ===================== LISTA RAPIDA SOBRE O VIDEO ===================== -->
+    <div id="overlayList" style="display:none;">
+        <img id="overlayLogo" src="img/logo_small.png" alt="">
+        <div id="overlayCat"></div>
+        <div id="overlayRows"></div>
+        <div id="overlayHint">&#9664; &#9654; categoria &middot; ENTER assistir &middot; RETURN fechar</div>
+    </div>
+
+    <!-- ===================== BARRA DE INFORMACOES (tela cheia) ===================== -->
+    <div id="osd" style="display:none;">
+        <img id="osdGradient" src="img/osd_gradient.png" alt="">
+        <div id="osdTile"><img id="osdLogo" src="img/blank.gif" alt=""></div>
+        <div id="osdTitle"></div>
+        <div id="osdSub"></div>
+        <div id="osdNowLabel">AGORA</div>
+        <div id="osdNowTime"></div>
+        <div id="osdNowTitle"></div>
+        <div id="osdProgress"><div id="osdProgressBar"></div></div>
+        <div id="osdNextLabel">A SEGUIR</div>
+        <div id="osdNextTime"></div>
+        <div id="osdNextTitle"></div>
+    </div>
+
+    <!-- Canais somente audio (radios/clipes): cobre o quadro de video preto -->
+    <div id="audioOnly" style="display:none;"><img id="audioLogo" src="img/blank.gif" alt=""><div id="audioTitle"></div><div id="audioSub">Somente &aacute;udio</div></div>
+
+    <div id="numberEntry" style="display:none;"></div>
+    <div id="volumeBox" style="display:none;"><span id="volumeLabel"></span><div id="volumeTrack"><div id="volumeFill"></div></div></div>
+    <div id="toast" style="display:none;"></div>
+
+    <!-- Indicadores sobre o video -->
+    <div id="playerLoader" style="display:none;">Carregando...</div>
+    <div id="playerError" style="display:none;"></div>
+
+    <!-- Controle parental -->
+    <div id="pinModal" style="display:none;">
+        <div id="pinCard">
+            <div id="pinTitle">Controle Parental</div>
+            <div id="pinSubtitle"></div>
+            <div id="pinDisplay">
+                <span class="pin-box" id="pinBox0"></span><span class="pin-box" id="pinBox1"></span><span class="pin-box" id="pinBox2"></span><span class="pin-box" id="pinBox3"></span>
+            </div>
+            <div id="pinAlert"></div>
+            <div id="pinHint">RETURN cancela</div>
+        </div>
+    </div>
+
+    <script type="text/javascript" charset="utf-8" src="js/config.js"></script>
+    <script type="text/javascript" charset="utf-8" src="js/remoteKeys.js"></script>
+    <script type="text/javascript" charset="utf-8" src="js/player.js"></script>
+    <script type="text/javascript" charset="utf-8" src="js/m3uParser.js"></script>
+    <script type="text/javascript" charset="utf-8" src="js/app.js"></script>
+</body>
+</html>

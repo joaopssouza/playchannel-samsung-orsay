@@ -1,0 +1,114 @@
+# Ponte HTTP -> HTTPS para a TV Samsung Orsay.
+# O navegador dessas TVs usa GnuTLS 2.12, que nao aceita os certificados modernos (ECDSA)
+# dos servicos de hoje. A TV fala HTTP com este servidor e ele fala HTTPS com o servico:
+#   http://SERVIDOR/px/<host>/<caminho>  ->  https://<host>/<caminho>
+# ${PROVIDER_HOST} e substituido na inicializacao pelo entrypoint do nginx (envsubst).
+
+upstream provider_origin {
+    server ${PROVIDER_HOST}:443;
+    keepalive 16;            # reaproveita a conexao TLS: cada segmento de video evita um handshake novo
+    keepalive_timeout 120s;
+}
+
+server {
+    listen 80 default_server;
+    server_name _;
+    keepalive_timeout 120s;
+
+    # Widget para sincronizar na TV: /widgetlist.xml, /PlayChannel.zip, /icon.png
+    location / {
+        root /usr/share/nginx/html;
+        sendfile on;
+    }
+
+    # Miniaturas dos logos no tamanho exato da tela (servico "thumbs")
+    location /thumb/ {
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        allow 127.0.0.1;
+        deny all;
+        resolver 127.0.0.11 valid=30s ipv6=off;   # DNS interno do Docker
+        set $thumbs http://thumbs:8080;
+        proxy_pass $thumbs;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 60s;
+    }
+
+    # Servico principal (API, logos, video). So aceita clientes da rede local.
+    location ^~ /px/${PROVIDER_HOST}/ {
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        allow 127.0.0.1;
+        deny all;
+
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Headers "Accept,Content-Type,Authorization,x-app-type" always;
+            add_header Access-Control-Allow-Methods "GET,POST,PUT,DELETE,OPTIONS" always;
+            return 204;
+        }
+
+        rewrite ^/px/[^/]+(/.*)$ $1 break;
+        proxy_pass https://provider_origin;
+        proxy_http_version 1.1;
+        proxy_ssl_server_name on;
+        proxy_ssl_name ${PROVIDER_HOST};
+        proxy_ssl_session_reuse on;
+        proxy_set_header Host ${PROVIDER_HOST};
+        proxy_set_header Connection "";
+        proxy_set_header Accept-Encoding "";
+        proxy_set_header Origin "https://${PROVIDER_HOST}";
+        proxy_set_header Referer "https://${PROVIDER_HOST}/";
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+
+        # Redirecionamentos e URLs absolutas nas playlists HLS voltam pela ponte
+        proxy_redirect ~^https://(?<rd_rest>.*)$ http://$http_host/px/$rd_rest;
+        sub_filter_types application/vnd.apple.mpegurl application/x-mpegurl audio/mpegurl audio/x-mpegurl;
+        sub_filter_once off;
+        sub_filter 'https://' 'http://$http_host/px/';
+
+        # A lista de canais (JSON grande) vai compactada para a TV
+        gzip on;
+        gzip_comp_level 5;
+        gzip_min_length 1024;
+        gzip_proxied any;
+        gzip_types application/json text/plain application/vnd.apple.mpegurl application/x-mpegurl;
+
+        proxy_hide_header Access-Control-Allow-Origin;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Headers "Accept,Content-Type,Authorization,x-app-type" always;
+    }
+
+    # Outros hosts permitidos (CDNs do servico e o stream de demonstracao). Edite a lista se precisar.
+    location ~ ^/px/(?<px_host>[a-z0-9-]+\.cdn\.tv\.br|test-streams\.mux\.dev)(?<px_path>/.*)?$ {
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        allow 127.0.0.1;
+        deny all;
+
+        resolver 1.1.1.1 8.8.8.8 valid=300s ipv6=off;
+        resolver_timeout 5s;
+
+        proxy_pass https://$px_host$px_path$is_args$args;
+        proxy_http_version 1.1;
+        proxy_ssl_server_name on;
+        proxy_ssl_name $px_host;
+        proxy_set_header Host $px_host;
+        proxy_set_header Connection "";
+        proxy_set_header Accept-Encoding "";
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+
+        proxy_redirect ~^https://(?<rd_rest>.*)$ http://$http_host/px/$rd_rest;
+        sub_filter_types application/vnd.apple.mpegurl application/x-mpegurl audio/mpegurl audio/x-mpegurl;
+        sub_filter_once off;
+        sub_filter 'https://' 'http://$http_host/px/';
+
+        add_header Access-Control-Allow-Origin * always;
+    }
+}
